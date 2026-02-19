@@ -1,7 +1,7 @@
 name: HubCloud Bypass Test 🕵️
 
 on:
-  workflow_dispatch: # Manually run karne ke liye button
+  workflow_dispatch: 
 
 jobs:
   test-cloud-bypass:
@@ -22,41 +22,50 @@ jobs:
           echo "Installing Python libraries..."
           pip install undetected-chromedriver selenium
 
-      - name: 🚀 Run Python Script (Inline)
+      - name: 🚀 Run Python Script (Auto-Version Fix)
         run: |
-          # Hamara Python Code yahi generate hoga
           cat <<EOF > bypass_script.py
           import time
+          import subprocess
           import undetected_chromedriver as uc
-          from selenium.webdriver.common.by import By
 
-          print("🚀 Setup complete. Launching Stealth Browser...")
+          def get_chrome_main_version():
+              # Chrome का version चेक करने के लिए जुगाड़
+              try:
+                  res = subprocess.check_output(['google-chrome', '--version']).decode('utf-8')
+                  version = res.split()[2].split('.')[0]
+                  print(f"🔍 Installed Chrome Version: {version}")
+                  return int(version)
+              except Exception as e:
+                  print(f"⚠️ Version check failed: {e}")
+                  return None
 
-          # Chrome Options setup
+          print("🚀 Launching Stealth Browser with Version Match...")
+
           options = uc.ChromeOptions()
           options.add_argument('--no-sandbox')
           options.add_argument('--disable-dev-shm-usage')
           options.add_argument('--window-size=1920,1080')
-          # Headless use nahi kar rahe, Xvfb use karenge taaki real user lage
+
+          main_v = get_chrome_main_version()
 
           try:
-              driver = uc.Chrome(options=options)
+              # version_main देना ज़रूरी है ताकि mismatch न हो
+              driver = uc.Chrome(options=options, version_main=main_v)
               
               url = "https://hubcloud.foo/drive/qoef8hunw1qfkuw"
               print(f"🔗 Opening URL: {url}")
               
               driver.get(url)
 
-              print("⏳ Waiting 10 seconds for Cloudflare/JavaScript...")
-              time.sleep(10)
+              print("⏳ Waiting 12 seconds for everything to load...")
+              time.sleep(12)
 
-              # HTML Source Code Nikalo
               page_source = driver.page_source
               page_title = driver.title
               
               print(f"✅ Page Title: {page_title}")
               
-              # Result file me save karo
               with open("hubcloud_result.html", "w", encoding="utf-8") as f:
                   f.write(page_source)
                   
@@ -64,7 +73,6 @@ jobs:
 
           except Exception as e:
               print(f"❌ Error aagaya: {e}")
-              # Error aaye to bhi file banayenge taaki pata chale kya hua
               with open("hubcloud_result.html", "w", encoding="utf-8") as f:
                   f.write(f"<h1>Error Occurred</h1><p>{e}</p>")
 
@@ -75,7 +83,6 @@ jobs:
                   pass
           EOF
 
-          # Ab isko Fake Display (Xvfb) ke sath run karte hain
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python bypass_script.py
 
       - name: 📤 Upload HTML Result
