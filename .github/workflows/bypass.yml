@@ -1,10 +1,10 @@
-name: HubCloud Bypass Test 🕵️
+name: Selenium Stealth Bypass 🥷
 
 on:
   workflow_dispatch: 
 
 jobs:
-  test-cloud-bypass:
+  fast-bypass:
     runs-on: ubuntu-latest
 
     steps:
@@ -13,80 +13,74 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: 📦 Install Dependencies & Chrome
+      - name: 📦 Install Lite Dependencies
         run: |
-          echo "Installing system dependencies..."
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable xvfb
-          
-          echo "Installing Python libraries..."
-          pip install undetected-chromedriver selenium
+          pip install selenium selenium-stealth
 
-      - name: 🚀 Run Python Script (Auto-Version Fix)
+      - name: 🚀 Run Selenium Stealth (Inline)
         run: |
-          cat <<EOF > bypass_script.py
+          cat <<EOF > stealth_script.py
           import time
-          import subprocess
-          import undetected_chromedriver as uc
+          from selenium import webdriver
+          from selenium.webdriver.chrome.service import Service
+          from selenium.webdriver.chrome.options import Options
+          from selenium_stealth import stealth
 
-          def get_chrome_main_version():
-              # Chrome का version चेक करने के लिए जुगाड़
-              try:
-                  res = subprocess.check_output(['google-chrome', '--version']).decode('utf-8')
-                  version = res.split()[2].split('.')[0]
-                  print(f"🔍 Installed Chrome Version: {version}")
-                  return int(version)
-              except Exception as e:
-                  print(f"⚠️ Version check failed: {e}")
-                  return None
+          print("🕵️ Initializing Lite Stealth Engine...")
 
-          print("🚀 Launching Stealth Browser with Version Match...")
+          options = Options()
+          options.add_argument("--headless") # GitHub पर headless fast चलता है
+          options.add_argument("--no-sandbox")
+          options.add_argument("--disable-dev-shm-usage")
+          options.add_experimental_option("excludeSwitches", ["enable-automation"])
+          options.add_experimental_option('useAutomationExtension', False)
 
-          options = uc.ChromeOptions()
-          options.add_argument('--no-sandbox')
-          options.add_argument('--disable-dev-shm-usage')
-          options.add_argument('--window-size=1920,1080')
+          driver = webdriver.Chrome(options=options)
 
-          main_v = get_chrome_main_version()
+          # ✨ Stealth Magic: Ye properties ko hide kar dega
+          stealth(driver,
+              languages=["en-US", "en"],
+              vendor="Google Inc.",
+              platform="Win32",
+              webgl_vendor="Intel Inc.",
+              renderer="Intel Iris OpenGL Engine",
+              fix_hairline=True,
+          )
 
           try:
-              # version_main देना ज़रूरी है ताकि mismatch न हो
-              driver = uc.Chrome(options=options, version_main=main_v)
-              
               url = "https://hubcloud.foo/drive/qoef8hunw1qfkuw"
-              print(f"🔗 Opening URL: {url}")
-              
+              print(f"🔗 Opening: {url}")
               driver.get(url)
 
-              print("⏳ Waiting 12 seconds for everything to load...")
-              time.sleep(12)
+              print("⏳ Waiting 10 seconds (JS Rendering)...")
+              time.sleep(10)
 
+              # Check if we got the button
               page_source = driver.page_source
-              page_title = driver.title
-              
-              print(f"✅ Page Title: {page_title}")
-              
-              with open("hubcloud_result.html", "w", encoding="utf-8") as f:
+              if 'id="download"' in page_source:
+                  print("🔥 Success! Download button found with Stealth.")
+              else:
+                  print("⚠️ Button not found. Cloudflare might have blocked us.")
+
+              with open("stealth_result.html", "w", encoding="utf-8") as f:
                   f.write(page_source)
                   
-              print("💾 HTML Saved successfully!")
+              print("💾 Result saved to stealth_result.html")
 
           except Exception as e:
-              print(f"❌ Error aagaya: {e}")
-              with open("hubcloud_result.html", "w", encoding="utf-8") as f:
-                  f.write(f"<h1>Error Occurred</h1><p>{e}</p>")
+              print(f"❌ Error: {e}")
 
           finally:
-              try:
-                  driver.quit()
-              except:
-                  pass
+              driver.quit()
           EOF
 
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" python bypass_script.py
+          # Run it
+          python stealth_script.py
 
-      - name: 📤 Upload HTML Result
+      - name: 📤 Upload Result
         uses: actions/upload-artifact@v4
         with:
-          name: hubcloud-html-source
-          path: hubcloud_result.html
+          name: stealth-html-source
+          path: stealth_result.html
