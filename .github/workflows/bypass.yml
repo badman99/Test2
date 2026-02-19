@@ -1,10 +1,10 @@
-name: Super Light Stealth Snatcher 🥷
+name: Ultimate Stealth Hunter 🏹
 
 on:
   workflow_dispatch:
 
 jobs:
-  stealth-light-scrape:
+  ultimate-hunt:
     runs-on: ubuntu-latest
 
     steps:
@@ -13,54 +13,92 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: 📦 Install Stealth Requests
+      - name: 📦 Install Stealth Tools
         run: pip install curl_cffi
 
-      - name: 🚀 Extract Link (Stealth Mode)
+      - name: 🚀 Start Surgical Strike
         run: |
-          cat <<EOF > stealth_snatch.py
+          cat <<EOF > hunter.py
           from curl_cffi import requests
           import re
+          import time
 
-          url = "https://hubcloud.foo/drive/qoef8hunw1qfkuw"
+          def scan_for_google(html):
+              """HTML से Google Direct Link निकालने का औजार"""
+              match = re.search(r'https?://video-downloads\.googleusercontent\.com/[^\s"\'<>]+', html)
+              return match.group(0) if match else None
+
+          def scan_for_hubcdn(html):
+              """HTML से HubCDN वाला लिंक निकालने का औजार"""
+              match = re.search(r'https?://pixel\.hubcdn\.fans/[^\s"\'<>]+', html)
+              return match.group(0) if match else None
+
+          # --- STEP 1: HUBCLOUD ---
+          hub_url = "https://hubcloud.foo/drive/qoef8hunw1qfkuw"
+          print(f"🕵️‍♂️ Step 1: HubCloud पर धावा बोल रहा हूँ...")
           
-          print("🕵️‍♂️ Browser की आवाज़ में रिक्वेस्ट भेज रहा हूँ...")
+          r1 = requests.get(hub_url, impersonate="chrome")
+          gamer_match = re.search(r"var url = '(.*?)';", r1.text)
           
-          # curl_cffi में impersonate="chrome" करने से ये बिल्कुल असली Chrome बन जाता है
-          try:
-              response = requests.get(url, impersonate="chrome", timeout=15)
+          if not gamer_match:
+              print("❌ GamerXYT लिंक नहीं मिला!")
+              exit()
+          
+          gamer_url = gamer_match.group(1)
+          print(f"✅ GamerXYT लिंक मिला: {gamer_url}")
+
+          # --- STEP 2: GAMERXYT ---
+          print(f"\n🏃 Step 2: GamerXYT के अंदर घुस रहा हूँ...")
+          r2 = requests.get(gamer_url, impersonate="chrome")
+          
+          # यहाँ चेक करो कि क्या Google लिंक पहले ही मिल गया?
+          google_link = scan_for_google(r2.text)
+          
+          if google_link:
+              print(f"🔥 जैकपॉट! Google लिंक यहीं मिल गया: {google_link}")
+          else:
+              print("🧐 Google लिंक नहीं मिला, अब HubCDN लिंक ढूंढ रहा हूँ...")
+              hubcdn_url = scan_for_hubcdn(r2.text)
               
-              if response.status_code == 200:
-                  print("✅ HTML मिल गया! अब लिंक ढूंढ रहा हूँ...")
+              if hubcdn_url:
+                  print(f"🔗 HubCDN लिंक मिला: {hubcdn_url}")
                   
-                  # वही पुराना जादुई Regex
-                  match = re.search(r"var url = '(.*?)';", response.text)
+                  # --- STEP 3: HUBCDN REDIRECT CHASE ---
+                  print(f"\n🚀 Step 3: HubCDN का पीछा कर रहा हूँ (Follow Redirects)...")
+                  # allow_redirects=True असली जादू है
+                  r3 = requests.get(hubcdn_url, impersonate="chrome", allow_redirects=True, timeout=30)
                   
-                  if match:
-                      final_link = match.group(1)
-                      print(f"\n🔥 JACPOT! लिंक मिल गया: {final_link}")
-                      with open("final_link.txt", "w") as f:
-                          f.write(final_link)
+                  print(f"📍 मंज़िल पर पहुँचे: {r3.url}")
+                  
+                  # अंतिम पेज के सोर्स में फिर से Google लिंक स्कैन करो
+                  final_google = scan_for_google(r3.text)
+                  
+                  if final_google:
+                      google_link = final_google
+                      print(f"🔥 जैकपॉट! अंतिम पेज पर Google लिंक मिल गया: {google_link}")
                   else:
-                      print("❌ Script टैग में लिंक नहीं मिला।")
-                      with open("source.html", "w", encoding='utf-8') as f:
-                          f.write(response.text)
+                      print("❌ अंतिम पेज पर भी कुछ नहीं मिला यार!")
               else:
-                  print(f"❌ अभी भी अटका दिया! Status: {response.status_code}")
-                  with open("error.html", "w", encoding='utf-8') as f:
-                      f.write(response.text)
+                  print("❌ HubCDN लिंक भी नहीं मिला।")
 
-          except Exception as e:
-              print(f"💥 भारी एरर: {e}")
+          # --- RESULT SAVE ---
+          if google_link:
+              with open("final_result.txt", "w") as f:
+                  f.write(f"GOOGLE_LINK: {google_link}")
+              print("\n🎉 मिशन कामयाब! लिंक सेव कर लिया गया है।")
+          else:
+              with open("failed_source.html", "w", encoding='utf-8') as f:
+                  f.write(r2.text)
+              print("\n💀 मिशन फेल! शायद साइट ने पैटर्न बदल दिया।")
+
           EOF
 
-          python stealth_snatch.py
+          python hunter.py
 
-      - name: 📤 Save Result
+      - name: 📤 Upload Final Treasure
         uses: actions/upload-artifact@v4
         with:
-          name: stealth-link-result
+          name: hunt-results
           path: |
-            final_link.txt
-            source.html
-            error.html
+            final_result.txt
+            failed_source.html
