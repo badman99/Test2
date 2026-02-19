@@ -1,10 +1,10 @@
-name: Super Light Link Snatcher ☁️
+name: Super Light Stealth Snatcher 🥷
 
 on:
   workflow_dispatch:
 
 jobs:
-  ultra-light-scrape:
+  stealth-light-scrape:
     runs-on: ubuntu-latest
 
     steps:
@@ -13,51 +13,54 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: 📦 Install Requests
-        run: pip install requests
+      - name: 📦 Install Stealth Requests
+        run: pip install curl_cffi
 
-      - name: 🚀 Extract Link (No Browser Mode)
+      - name: 🚀 Extract Link (Stealth Mode)
         run: |
-          cat <<EOF > light_snatch.py
-          import requests
+          cat <<EOF > stealth_snatch.py
+          from curl_cffi import requests
           import re
-          import time
 
           url = "https://hubcloud.foo/drive/qoef8hunw1qfkuw"
-          headers = {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-          }
-
-          print("📡 Request bhej raha hoon...")
-          response = requests.get(url, headers=headers)
-
-          if response.status_code == 200:
-              print("✅ HTML mil gaya!")
+          
+          print("🕵️‍♂️ Browser की आवाज़ में रिक्वेस्ट भेज रहा हूँ...")
+          
+          # curl_cffi में impersonate="chrome" करने से ये बिल्कुल असली Chrome बन जाता है
+          try:
+              response = requests.get(url, impersonate="chrome", timeout=15)
               
-              # 🕵️‍♂️ Ab Magic Dekho: Script tag ke andar se link nikalte hain
-              # Hum wo 'var url' wali line dhoond rahe hain
-              match = re.search(r"var url = '(.*?)';", response.text)
-              
-              if match:
-                  final_link = match.group(1)
-                  print(f"\n🔥 JACPOT! Link mil gaya: {final_link}")
-                  with open("final_link.txt", "w") as f:
-                      f.write(final_link)
+              if response.status_code == 200:
+                  print("✅ HTML मिल गया! अब लिंक ढूंढ रहा हूँ...")
+                  
+                  # वही पुराना जादुई Regex
+                  match = re.search(r"var url = '(.*?)';", response.text)
+                  
+                  if match:
+                      final_link = match.group(1)
+                      print(f"\n🔥 JACPOT! लिंक मिल गया: {final_link}")
+                      with open("final_link.txt", "w") as f:
+                          f.write(final_link)
+                  else:
+                      print("❌ Script टैग में लिंक नहीं मिला।")
+                      with open("source.html", "w", encoding='utf-8') as f:
+                          f.write(response.text)
               else:
-                  print("❌ Script me link nahi mila, shayad site badal gayi.")
-                  # Debugging ke liye source save kar lo
-                  with open("source.html", "w") as f:
+                  print(f"❌ अभी भी अटका दिया! Status: {response.status_code}")
+                  with open("error.html", "w", encoding='utf-8') as f:
                       f.write(response.text)
-          else:
-              print(f"❌ Site block kar rahi hai: {response.status_code}")
+
+          except Exception as e:
+              print(f"💥 भारी एरर: {e}")
           EOF
 
-          python light_snatch.py
+          python stealth_snatch.py
 
       - name: 📤 Save Result
         uses: actions/upload-artifact@v4
         with:
-          name: final-link-result
+          name: stealth-link-result
           path: |
             final_link.txt
             source.html
+            error.html
