@@ -1,0 +1,94 @@
+name: 🧪 File Name & Size Tester
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Direct URL dalo (Google CDN, PixelDrain, kuch bhi)'
+        required: true
+
+jobs:
+  test-filename:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🐍 Python taiyaar karo
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 📦 curl_cffi install karo
+        run: pip install curl_cffi
+
+      - name: 🔍 Naam aur Size nikalo (Bina Download Kiye!)
+        run: |
+          python - <<'EOF'
+          from curl_cffi import requests
+          from urllib.parse import urlparse, unquote
+          import re
+
+          url = "${{ github.event.inputs.target_url }}"
+          print(f"🎯 Target URL: {url}\n")
+
+          session = requests.Session(impersonate="chrome")
+
+          # --- HEAD REQUEST (0 bytes download!) ---
+          print("📡 HEAD Request maar raha hoon...")
+          resp = session.head(url, allow_redirects=True, timeout=20)
+          print(f"✅ Response Status: {resp.status_code}")
+          print(f"📋 Final URL (after redirects): {resp.url}\n")
+
+          # --- FILENAME NIKALO ---
+          filename = None
+
+          # Method 1: Content-Disposition header
+          cd = resp.headers.get("Content-Disposition", "")
+          if "filename=" in cd:
+              # filename* (RFC 5987) bhi handle karta hai
+              match = re.search(r"filename\*?=['\"]?(?:UTF-8'')?([^'\";\n]+)", cd, re.IGNORECASE)
+              if match:
+                  filename = unquote(match.group(1).strip().strip('"').strip("'"))
+                  print(f"✅ [Method 1] Content-Disposition se mila: {filename}")
+
+          # Method 2: URL path se
+          if not filename:
+              path = urlparse(str(resp.url)).path
+              name = unquote(path.split("/")[-1])
+              if "." in name:
+                  filename = name
+                  print(f"✅ [Method 2] URL Path se mila: {filename}")
+
+          # Method 3: Bilkul nahi mila
+          if not filename:
+              filename = "❌ Naam nahi mila (server ne nahi bataya)"
+              print(filename)
+
+          # --- SIZE NIKALO ---
+          size_bytes = resp.headers.get("Content-Length", None)
+
+          if size_bytes:
+              size_bytes = int(size_bytes)
+              if size_bytes >= 1_073_741_824:
+                  size_str = f"{size_bytes / 1_073_741_824:.2f} GB"
+              elif size_bytes >= 1_048_576:
+                  size_str = f"{size_bytes / 1_048_576:.2f} MB"
+              else:
+                  size_str = f"{size_bytes / 1024:.2f} KB"
+              print(f"✅ Size: {size_str} ({size_bytes:,} bytes)")
+          else:
+              size_str = "❌ Size nahi mili (server ne Content-Length nahi diya)"
+              print(size_str)
+
+          # --- EXTRA INFO ---
+          content_type = resp.headers.get("Content-Type", "Unknown")
+          resumable = "✅ HAN" if resp.headers.get("Accept-Ranges") == "bytes" else "❌ NAHI"
+
+          print("\n" + "="*60)
+          print("📊 FINAL REPORT")
+          print("="*60)
+          print(f"📁 Filename : {filename}")
+          print(f"📦 Size     : {size_str}")
+          print(f"🎬 Type     : {content_type}")
+          print(f"⏸️  Resumable: {resumable}")
+          print("="*60)
+          EOF
