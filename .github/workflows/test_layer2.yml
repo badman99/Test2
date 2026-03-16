@@ -1,0 +1,101 @@
+name: 🧪 Layer 2 Force Tester (GET Stream)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Direct URL dalo — Layer 1 skip karke seedha Layer 2 test hoga'
+        required: true
+
+jobs:
+  test-layer2:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🐍 Python taiyaar karo
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: 📦 curl_cffi install karo
+        run: pip install curl_cffi
+
+      - name: 🟡 Layer 2 Force Test (GET stream=True)
+        run: |
+          python - <<'EOF'
+          from curl_cffi import requests
+          from urllib.parse import urlparse, unquote
+          import re
+
+          url = "${{ github.event.inputs.target_url }}"
+          print(f"🎯 Target URL: {url}")
+          print("⚠️  Layer 1 (HEAD) intentionally SKIP kiya gaya!\n")
+
+          session = requests.Session(impersonate="chrome")
+
+          filename = None
+          size_str = None
+          resumable = False
+          content_type = "Unknown"
+
+          # =============================================
+          # LAYER 2 ONLY: GET stream=True
+          # =============================================
+          print("━"*50)
+          print("🟡 [Layer 2] GET stream=True maar raha hoon...")
+          print("   (Body download NAHI hogi — sirf headers!)")
+
+          try:
+              resp = session.get(url, stream=True, allow_redirects=True, timeout=20)
+              print(f"   Status      : {resp.status_code}")
+              print(f"   Final URL   : {resp.url}")
+
+              # Saare headers dikhao — debugging ke liye
+              print("\n📋 Server ke saare headers:")
+              for k, v in resp.headers.items():
+                  print(f"   {k}: {v}")
+
+              content_type = resp.headers.get("Content-Type", "Unknown")
+              resumable = resp.headers.get("Accept-Ranges", "") == "bytes"
+
+              # Size
+              cl = resp.headers.get("Content-Length")
+              if cl:
+                  b = int(cl)
+                  if b >= 1_073_741_824:
+                      size_str = f"{b / 1_073_741_824:.2f} GB ({b:,} bytes)"
+                  elif b >= 1_048_576:
+                      size_str = f"{b / 1_048_576:.2f} MB ({b:,} bytes)"
+                  else:
+                      size_str = f"{b / 1024:.2f} KB ({b:,} bytes)"
+
+              # Filename
+              cd = resp.headers.get("Content-Disposition", "")
+              if "filename" in cd:
+                  match = re.search(r"filename\*?=['\"]?(?:UTF-8'')?([^'\";\n\r]+)", cd, re.IGNORECASE)
+                  if match:
+                      filename = unquote(match.group(1).strip().strip('"').strip("'"))
+                      print(f"\n   ✅ Content-Disposition se mila: {filename}")
+              else:
+                  print(f"\n   ❌ Content-Disposition header aaya hi nahi!")
+                  print(f"      Raw CD header: '{cd}'")
+
+              # IMPORTANT: Turant close — 0 bytes body!
+              resp.close()
+              print("   🔒 Connection closed — 0 bytes downloaded!")
+
+          except Exception as e:
+              print(f"   💥 Layer 2 crash: {e}")
+
+          # =============================================
+          # FINAL REPORT
+          # =============================================
+          print("\n" + "█"*55)
+          print("📊          FINAL REPORT")
+          print("█"*55)
+          print(f"📁 Filename  : {filename or '❌ Layer 2 ne bhi nahi diya'}")
+          print(f"📦 Size      : {size_str or '❌ Nahi mili'}")
+          print(f"🎬 Type      : {content_type}")
+          print(f"⏸️  Resumable : {'✅ HAN' if resumable else '❌ NAHI'}")
+          print("█"*55)
+          EOF
