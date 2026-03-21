@@ -1,4 +1,4 @@
-name: 🖥️ Mobile Remote Desktop
+name: 🖥️ VNC + RustDesk Desktop
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ jobs:
     timeout-minutes: 360
 
     steps:
-      - name: 🖥️ Desktop Install
+      - name: 📦 Install Sab Kuch
         run: |
           sudo apt-get update -q
           sudo apt-get install -y \
@@ -17,41 +17,87 @@ jobs:
             xfce4-goodies \
             xvfb \
             x11vnc \
+            novnc \
+            websockify \
             curl wget
 
-      - name: 🚀 Display + Desktop Start
-        run: |
-          Xvfb :99 -screen 0 1920x1080x24 &
-          export DISPLAY=:99
-          sleep 2
-          startxfce4 &
-          sleep 3
-
-      - name: 📱 RustDesk Latest Install
+      - name: 📱 RustDesk Install
         run: |
           LATEST_URL=$(curl -s \
             https://api.github.com/repos/rustdesk/rustdesk/releases/latest \
             | grep "browser_download_url" \
             | grep "x86_64.deb" \
             | cut -d '"' -f 4)
-          
-          echo "⬇️ Downloading: $LATEST_URL"
           wget -q "$LATEST_URL" -O rustdesk.deb
           sudo apt-get install -y -f ./rustdesk.deb
-          echo "✅ RustDesk Ready!"
+          echo "✅ RustDesk Installed!"
 
-      - name: 🔑 Password + Start
+      - name: 🖥️ Display + Desktop Start
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 &
+          sleep 3
+          export DISPLAY=:99
+          startxfce4 &
+          sleep 5
+          echo "✅ Desktop Ready!"
+
+      - name: 🔒 VNC Start
+        run: |
+          x11vnc \
+            -display :99 \
+            -passwd "mobile1234" \
+            -forever \
+            -loop \
+            -noxdamage \
+            -rfbport 5900 \
+            -bg
+          sleep 2
+          echo "✅ VNC Ready!"
+
+      - name: 🌐 noVNC Start
+        run: |
+          websockify \
+            --web=/usr/share/novnc/ \
+            --wrap-mode=ignore \
+            6080 localhost:5900 &
+          sleep 2
+          echo "✅ noVNC Ready!"
+
+      - name: 🚀 RustDesk Background Start
         run: |
           export DISPLAY=:99
-          rustdesk --password "mobile1234" &
-          sleep 10
+          rustdesk &
+          sleep 5
+          echo "✅ RustDesk Running!"
+
+      - name: 🚇 Bore Tunnel
+        run: |
+          BORE_URL=$(curl -s \
+            https://api.github.com/repos/ekzhang/bore/releases/latest \
+            | grep "browser_download_url" \
+            | grep "x86_64-unknown-linux-musl.tar.gz" \
+            | cut -d '"' -f 4)
+
+          wget -q "$BORE_URL" -O bore.tar.gz
+          tar -xzf bore.tar.gz
+          chmod +x bore
+
+          ./bore local 6080 --to bore.pub 2>&1 \
+            | tee bore_output.txt &
           
-          RUST_ID=$(rustdesk --get-id)
-          echo "━━━━━━━━━━━━━━━━━━━━━"
-          echo "📱 Mobile App में डालो:"
-          echo "🆔 ID    : $RUST_ID"
-          echo "🔑 Pass  : mobile1234"
-          echo "━━━━━━━━━━━━━━━━━━━━━"
+          sleep 8
+
+          PORT=$(grep -o 'bore.pub:[0-9]*' bore_output.txt \
+            | head -1 | cut -d':' -f2)
+
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📱 Mobile Browser mein kholo:"
+          echo "🔗 http://bore.pub:$PORT/vnc.html"
+          echo "🔑 VNC Password : mobile1234"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🟢 RustDesk bhi chal raha hai!"
+          echo "   Desktop pe khud setup karo!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
       - name: ⏳ Alive Rakho
         run: sleep 21600
