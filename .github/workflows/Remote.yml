@@ -1,70 +1,60 @@
-name: 🖥️ VNC + RustDesk Desktop
+name: 🖥️ Windows Remote Desktop
 
 on:
   push:
   workflow_dispatch:
 
 jobs:
-  desktop-vnc:
-    runs-on: ubuntu-latest
+  windows-rdp:
+    runs-on: windows-latest
     timeout-minutes: 350
 
     steps:
 
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-
-      - name: 📦 Install Display + VNC Packages
+      - name: 👤 RDP User Banao
         run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb x11vnc fluxbox wmctrl libpulse0 libnss3 libglu1-mesa
-          echo "✅ Packages installed!"
+          net user rdpuser "Pass@1234" /add
+          net localgroup "Administrators" rdpuser /add
+          net localgroup "Remote Desktop Users" rdpuser /add
+          echo "✅ User Ready!"
+        shell: cmd
 
-      - name: 🖥️ Display + Fluxbox + VNC + Bore Start
+      - name: 🔓 RDP Enable Karo
         run: |
-          Xvfb :1 -screen 0 1920x1080x24 &
-          export DISPLAY=:1
-          sleep 2
+          reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
+          reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 0 /f
+          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+          echo "✅ RDP Enabled!"
+        shell: cmd
 
-          fluxbox &
-          sleep 3
-          echo "✅ Display + Fluxbox Ready!"
-
-          x11vnc -display :1 -nopw -forever -shared -bg -o /tmp/x11vnc.log -xkb -capslock -skip_lockkeys
-          sleep 2
-          echo "✅ VNC Started!"
-
-          curl -Ls https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz | tar zx -C /usr/local/bin
-          chmod +x /usr/local/bin/bore
-
-          bore local 5900 --to bore.pub 2>&1 | tee /tmp/bore.log &
-          sleep 5
-
+      - name: 🚇 Bore Tunnel Start Karo
+        run: |
+          curl -Ls https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-pc-windows-msvc.zip -o bore.zip
+          tar -xf bore.zip
+          
+          Start-Process -NoNewWindow bore.exe -ArgumentList "local 3389 --to bore.pub" -RedirectStandardOutput "C:\bore.log" -RedirectStandardError "C:\bore_err.log"
+          
+          Start-Sleep -Seconds 8
+          
+          $log = Get-Content "C:\bore.log" -ErrorAction SilentlyContinue
+          $errlog = Get-Content "C:\bore_err.log" -ErrorAction SilentlyContinue
+          $alllog = "$log $errlog"
+          
+          $port = [regex]::Match($alllog, 'bore\.pub:(\d+)').Groups[1].Value
+          
           echo "============================================"
           echo "📱 PHONE PE YEH KARO:"
-          echo "App  : RealVNC / MultiVNC"
-          echo "Host : bore.pub"
-          echo "Port : (neeche dekho)"
-          cat /tmp/bore.log | grep "remote_port\|listening"
-          echo "Pass : koi nahi - seedha connect!"
+          echo "App      : Microsoft RD (Remote Desktop)"
+          echo "Host     : bore.pub"
+          echo "Port     : $port"
+          echo "Username : rdpuser"
+          echo "Password : Pass@1234"
           echo "============================================"
+        shell: powershell
 
-      - name: 📱 RustDesk Install + Start
-        env:
-          DISPLAY: :1
-        run: |
-          wget -q \
-            https://github.com/rustdesk/rustdesk/releases/download/1.4.6/rustdesk-1.4.6-x86_64.deb \
-            -O rustdesk.deb
-          sudo apt-get install -y -f ./rustdesk.deb
-          echo "✅ RustDesk Installed!"
-
-          nohup rustdesk > /dev/null 2>&1 &
-          sleep 5
-          echo "✅ RustDesk Desktop pe chal raha hai!"
-          echo "VNC se connect karo aur RustDesk setup karo! 😎"
-
-          sleep 21600
+      - name: ⏳ Session Alive Rakho
+        run: Start-Sleep -Seconds 21600
+        shell: powershell
 
       - name: 🔐 SSH via tmate
         uses: mxschmitt/action-tmate@v3
