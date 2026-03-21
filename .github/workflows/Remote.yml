@@ -21,17 +21,6 @@ jobs:
             websockify \
             curl wget
 
-      - name: 📱 RustDesk Install
-        run: |
-          LATEST_URL=$(curl -s \
-            https://api.github.com/repos/rustdesk/rustdesk/releases/latest \
-            | grep "browser_download_url" \
-            | grep "x86_64.deb" \
-            | cut -d '"' -f 4)
-          wget -q "$LATEST_URL" -O rustdesk.deb
-          sudo apt-get install -y -f ./rustdesk.deb
-          echo "✅ RustDesk Installed!"
-
       - name: 🖥️ Display + Desktop Start
         run: |
           Xvfb :99 -screen 0 1920x1080x24 &
@@ -43,34 +32,26 @@ jobs:
 
       - name: 🔒 VNC Start
         run: |
-          x11vnc \
+          nohup x11vnc \
             -display :99 \
             -passwd "mobile1234" \
             -forever \
-            -loop \
             -noxdamage \
             -rfbport 5900 \
-            -bg
+            -quiet > /dev/null 2>&1 &
           sleep 2
           echo "✅ VNC Ready!"
 
       - name: 🌐 noVNC Start
         run: |
-          websockify \
+          nohup websockify \
             --web=/usr/share/novnc/ \
             --wrap-mode=ignore \
-            6080 localhost:5900 &
+            6080 localhost:5900 > /dev/null 2>&1 &
           sleep 2
           echo "✅ noVNC Ready!"
 
-      - name: 🚀 RustDesk Background Start
-        run: |
-          export DISPLAY=:99
-          rustdesk &
-          sleep 5
-          echo "✅ RustDesk Running!"
-
-      - name: 🚇 Bore Tunnel
+      - name: 🚇 Bore Tunnel Start
         run: |
           BORE_URL=$(curl -s \
             https://api.github.com/repos/ekzhang/bore/releases/latest \
@@ -84,8 +65,9 @@ jobs:
 
           ./bore local 6080 --to bore.pub 2>&1 \
             | tee bore_output.txt &
-          
-          sleep 8
+
+          echo "⏳ Tunnel ban raha hai..."
+          sleep 10
 
           PORT=$(grep -o 'bore.pub:[0-9]*' bore_output.txt \
             | head -1 | cut -d':' -f2)
@@ -93,11 +75,26 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "📱 Mobile Browser mein kholo:"
           echo "🔗 http://bore.pub:$PORT/vnc.html"
-          echo "🔑 VNC Password : mobile1234"
+          echo "🔑 Password : mobile1234"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "🟢 RustDesk bhi chal raha hai!"
-          echo "   Desktop pe khud setup karo!"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+      - name: 📱 RustDesk Install + Start
+        run: |
+          LATEST_URL=$(curl -s \
+            https://api.github.com/repos/rustdesk/rustdesk/releases/latest \
+            | grep "browser_download_url" \
+            | grep "x86_64.deb" \
+            | cut -d '"' -f 4)
+
+          wget -q "$LATEST_URL" -O rustdesk.deb
+          sudo apt-get install -y -f ./rustdesk.deb
+          echo "✅ RustDesk Installed!"
+
+          export DISPLAY=:99
+          nohup rustdesk > /dev/null 2>&1 &
+          sleep 5
+          echo "✅ RustDesk Running!"
+          echo "👆 VNC se dekho Desktop pe!"
 
       - name: ⏳ Alive Rakho
         run: sleep 21600
