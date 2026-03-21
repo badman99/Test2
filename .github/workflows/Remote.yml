@@ -12,50 +12,49 @@ jobs:
     steps:
 
       - name: 👤 RDP User Banao
+        shell: cmd
         run: |
           net user rdpuser "Pass@1234" /add
           net localgroup "Administrators" rdpuser /add
           net localgroup "Remote Desktop Users" rdpuser /add
-          echo "✅ User Ready!"
-        shell: cmd
+          echo Done!
 
       - name: 🔓 RDP Enable Karo
+        shell: cmd
         run: |
           reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
           reg add "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" /v UserAuthentication /t REG_DWORD /d 0 /f
           netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
-          echo "✅ RDP Enabled!"
-        shell: cmd
+          echo RDP Enabled!
 
-      - name: 🚇 Bore Tunnel Start Karo
+      - name: 🚇 Bore Download + Tunnel
+        shell: powershell
         run: |
-          curl -Ls https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-pc-windows-msvc.zip -o bore.zip
-          tar -xf bore.zip
-          
-          Start-Process -NoNewWindow bore.exe -ArgumentList "local 3389 --to bore.pub" -RedirectStandardOutput "C:\bore.log" -RedirectStandardError "C:\bore_err.log"
-          
-          Start-Sleep -Seconds 8
-          
-          $log = Get-Content "C:\bore.log" -ErrorAction SilentlyContinue
-          $errlog = Get-Content "C:\bore_err.log" -ErrorAction SilentlyContinue
-          $alllog = "$log $errlog"
-          
-          $port = [regex]::Match($alllog, 'bore\.pub:(\d+)').Groups[1].Value
-          
-          echo "============================================"
-          echo "📱 PHONE PE YEH KARO:"
-          echo "App      : Microsoft RD (Remote Desktop)"
-          echo "Host     : bore.pub"
-          echo "Port     : $port"
-          echo "Username : rdpuser"
-          echo "Password : Pass@1234"
-          echo "============================================"
-        shell: powershell
+          curl -Ls "https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-pc-windows-msvc.zip" -o bore.zip
+          Expand-Archive -Path bore.zip -DestinationPath . -Force
 
-      - name: ⏳ Session Alive Rakho
+          Start-Process -NoNewWindow -FilePath ".\bore.exe" -ArgumentList @("local", "3389", "--to", "bore.pub") -RedirectStandardOutput "C:\bore.log" -RedirectStandardError "C:\bore_err.log"
+
+          Start-Sleep -Seconds 10
+
+          $log = (Get-Content "C:\bore.log" -ErrorAction SilentlyContinue) -join " "
+          $err = (Get-Content "C:\bore_err.log" -ErrorAction SilentlyContinue) -join " "
+          $all = "$log $err"
+
+          $port = [regex]::Match($all, 'bore\.pub:(\d+)').Groups[1].Value
+
+          Write-Host "========================================="
+          Write-Host "App      : Microsoft Remote Desktop"
+          Write-Host "Host     : bore.pub"
+          Write-Host "Port     : $port"
+          Write-Host "Username : rdpuser"
+          Write-Host "Password : Pass@1234"
+          Write-Host "========================================="
+
+      - name: ⏳ Alive Rakho
+        shell: powershell
         run: Start-Sleep -Seconds 21600
-        shell: powershell
 
-      - name: 🔐 SSH via tmate
+      - name: 🔐 tmate SSH
         uses: mxschmitt/action-tmate@v3
         if: always()
