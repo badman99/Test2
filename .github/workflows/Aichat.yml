@@ -1,4 +1,4 @@
-name: AI Live Chat on Bore
+name: AI Live Project Final
 on: workflow_dispatch
 
 jobs:
@@ -9,11 +9,11 @@ jobs:
         run: |
           pip install playwright requests flask flask-cors
           playwright install chromium
-          # Bore install karna
+          # Bore install
           curl -Ls https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-unknown-linux-musl.tar.gz | tar -xz
           sudo mv bore /usr/local/bin/
 
-      - name: Start AI Server and Tunnel
+      - name: Start Live AI Project
         run: |
           python3 << 'EOF' &
           import json
@@ -22,53 +22,73 @@ jobs:
           from playwright.sync_api import sync_playwright
 
           app = Flask(__name__)
+
+          # Configuration
+          PROXY_LIST = ["38.34.179.78:8445", "38.34.179.105:8449", "103.171.255.242:8086"] # Top 3 working
+          current_proxy_index = 0
+          chat_history = []
           
-          # Global state
-          chat_context = []
-          browser_instance = None
-          page_instance = None
-          proxy = "38.34.179.78:8445" # Jo proxy kaam kar rahi thi
+          # Playwright Globals
+          pw = None
+          browser = None
+          page = None
 
-          def init_browser():
-              global browser_instance, page_instance
-              print(f"🚀 [LOG] Initializing Browser with Proxy: {proxy}")
-              pw = sync_playwright().start()
-              browser_instance = pw.chromium.launch(proxy={"server": f"http://{proxy}"}, headless=True)
-              page_instance = browser_instance.new_page()
-              page_instance.goto("https://aifreeforever.com/tools/free-chatgpt-no-login", timeout=60000)
-              print("✅ [LOG] Browser Ready!")
+          def start_session():
+              global pw, browser, page, current_proxy_index
+              if browser:
+                  browser.close()
+              
+              proxy = PROXY_LIST[current_proxy_index]
+              print(f"🚀 [LOG] Starting Browser with Proxy: {proxy}")
+              try:
+                  pw = sync_playwright().start()
+                  browser = pw.chromium.launch(proxy={"server": f"http://{proxy}"}, headless=True)
+                  page = browser.new_page()
+                  page.goto("https://aifreeforever.com/tools/free-chatgpt-no-login", timeout=60000)
+                  print("✅ [LOG] Browser is Live and Ready!")
+                  return True
+              except Exception as e:
+                  print(f"❌ [LOG] Failed with {proxy}: {e}")
+                  current_proxy_index = (current_proxy_index + 1) % len(PROXY_LIST)
+                  return start_session()
 
-          init_browser()
+          # Initial Start
+          start_session()
 
-          HTML_TEMPLATE = """
+          HTML_PAGE = """
           <!DOCTYPE html>
           <html>
           <head>
-              <title>Badal's Private AI</title>
+              <title>Badal's Live AI</title>
               <style>
-                  body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
-                  #chat { height: 400px; overflow-y: scroll; border: 1px solid #444; padding: 10px; margin-bottom: 10px; }
-                  input { width: 80%; padding: 10px; background: #222; color: white; border: 1px solid #555; }
-                  button { padding: 10px; cursor: pointer; background: #007bff; color: white; border: none; }
-                  .user { color: #00ff00; }
-                  .ai { color: #00d4ff; }
+                  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f0f; color: #e0e0e0; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+                  #header { background: #1a1a1a; padding: 15px; text-align: center; border-bottom: 2px solid #333; }
+                  #chat-box { flex: 1; overflow-y: auto; padding: 20px; }
+                  #input-area { background: #1a1a1a; padding: 20px; display: flex; gap: 10px; }
+                  input { flex: 1; padding: 12px; border-radius: 5px; border: 1px solid #444; background: #252525; color: white; }
+                  button { padding: 12px 25px; background: #0078d4; color: white; border: none; border-radius: 5px; cursor: pointer; }
+                  .msg { margin-bottom: 15px; padding: 10px; border-radius: 8px; max-width: 80%; }
+                  .user { background: #004a87; align-self: flex-end; margin-left: auto; }
+                  .ai { background: #2d2d2d; align-self: flex-start; }
               </style>
           </head>
           <body>
-              <h2>Badal's Unrestricted Gemini 🤪</h2>
-              <div id="chat"></div>
-              <input type="text" id="msg" placeholder="Type something..." onkeypress="if(event.key==='Enter') send()">
-              <button onclick="send()">Send</button>
-
+              <div id="header"><h2>Badal's Unrestricted Chat 🤪</h2></div>
+              <div id="chat-box"></div>
+              <div id="input-area">
+                  <input type="text" id="user-input" placeholder="Yahan likho Badal bhai...">
+                  <button onclick="sendMessage()">Bhejo 🚀</button>
+              </div>
               <script>
-                  async function send() {
-                      const msgInput = document.getElementById('msg');
-                      const chatDiv = document.getElementById('chat');
-                      const text = msgInput.value;
+                  async function sendMessage() {
+                      const input = document.getElementById('user-input');
+                      const box = document.getElementById('chat-box');
+                      const text = input.value;
                       if(!text) return;
 
-                      chatDiv.innerHTML += `<p class="user"><b>Badal:</b> ${text}</p>`;
-                      msgInput.value = '';
+                      box.innerHTML += `<div class="msg user"><b>Badal:</b> ${text}</div>`;
+                      input.value = '';
+                      box.scrollTop = box.scrollHeight;
 
                       const res = await fetch('/ask', {
                           method: 'POST',
@@ -76,8 +96,8 @@ jobs:
                           body: JSON.stringify({ question: text })
                       });
                       const data = await res.json();
-                      chatDiv.innerHTML += `<p class="ai"><b>Gemini:</b> ${data.answer}</p>`;
-                      chatDiv.scrollTop = chatDiv.scrollHeight;
+                      box.innerHTML += `<div class="msg ai"><b>Gemini:</b> ${data.answer}</div>`;
+                      box.scrollTop = box.scrollHeight;
                   }
               </script>
           </body>
@@ -85,29 +105,31 @@ jobs:
           """
 
           @app.route('/')
-          def index():
-              return render_template_string(HTML_TEMPLATE)
+          def home():
+              return render_template_string(HTML_PAGE)
 
           @app.route('/ask', methods=['POST'])
           def ask():
-              global chat_context
+              global page, chat_history
               user_query = request.json.get('question')
               
+              print(f"📩 [RAW REQUEST] Question: {user_query}")
+              
               try:
-                  # Nonce fetch
-                  nonce_res = page_instance.evaluate("async () => { const r = await fetch('/api/chat-nonce'); return await r.json(); }")
-                  nonce = nonce_res.get('nonce')
+                  # Nonce fetching
+                  nonce_res = page.evaluate("async () => { const r = await fetch('/api/chat-nonce'); return {status: r.status, body: await r.json()}; }")
+                  print(f"📄 [RAW NONCE]: {json.dumps(nonce_res)}")
+                  nonce = nonce_res['body'].get('nonce')
 
-                  # AI request with context
-                  ai_payload = {
+                  # Interaction Proof & History
+                  payload = {
                       "question": user_query,
                       "tone": "friendly",
                       "format": "paragraph",
-                      "conversationHistory": chat_context,
+                      "conversationHistory": chat_history,
                       "interactionProof": {
                           "nonce": nonce,
                           "keystrokeCount": 10,
-                          "pasteEvents": 0,
                           "totalTypingTime": 2000,
                           "startTime": int(time.time()*1000) - 2000,
                           "submitTime": int(time.time()*1000)
@@ -115,31 +137,35 @@ jobs:
                       "aiRole": "assistant"
                   }
 
-                  response = page_instance.evaluate(f"""
+                  # AI Response
+                  ai_res = page.evaluate(f"""
                       async () => {{
                           const r = await fetch('/api/generate-ai-answer', {{
                               method: 'POST',
                               headers: {{'Content-Type': 'application/json'}},
-                              body: JSON.stringify({json.dumps(ai_payload)})
+                              body: JSON.stringify({json.dumps(payload)})
                           }});
-                          return await r.json();
+                          return {{status: r.status, body: await r.json()}};
                       }}
                   """)
+                  print(f"📄 [RAW AI RESPONSE]: {json.dumps(ai_res)}")
 
-                  answer = response.get('answer', "Sorry, I missed that. 🤪")
+                  answer = ai_res['body'].get('answer', "No answer received.")
                   
-                  # Update context
-                  chat_context.append({"role": "user", "content": user_query})
-                  chat_context.append({"role": "assistant", "content": answer})
+                  # Context maintain karna
+                  chat_history.append({"role": "user", "content": user_query})
+                  chat_history.append({"role": "assistant", "content": answer})
 
                   return jsonify({"answer": answer})
               except Exception as e:
-                  return jsonify({"answer": f"Error: {str(e)} 😂"})
+                  print(f"❌ Error during AI call: {e}")
+                  start_session() # Restart if something breaks
+                  return jsonify({"answer": "Opps! Thoda error aaya, restart kar raha hoon... 😂"})
 
           if __name__ == "__main__":
-              app.run(port=5000)
+              # Threading False kiya taaki Playwright crash na ho
+              app.run(port=5000, threaded=False)
           EOF
           
-          # Bore tunnel start karna
-          sleep 5
+          sleep 10
           bore local 5000 --to bore.pub
