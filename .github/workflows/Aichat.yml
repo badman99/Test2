@@ -42,109 +42,106 @@ jobs:
               proxy = PROXY_LIST[current_proxy_idx]
               print(f"🚀 [LOG] Initializing Async Browser with Proxy: {proxy}")
               
-              pw_instance = await async_playwright().start()
-              try:
-                  browser_instance = await pw_instance.chromium.launch(
-                      proxy={"server": f"http://{proxy}"}, 
-                      headless=True
-                  )
-                  page_instance = await browser_instance.new_page()
-                  await page_instance.goto("https://aifreeforever.com/tools/free-chatgpt-no-login", timeout=60000)
-                  print("✅ [LOG] Browser is ready for action! 🤪")
-              except Exception as e:
-                  print(f"❌ [LOG] Proxy failed: {e}")
-                  current_proxy_idx = (current_proxy_idx + 1) % len(PROXY_LIST)
-                  await init_playwright()
+name: Fast AI Test (No Playwright)
+on: workflow_dispatch
 
-          # HTML Template remains same
-          HTML_PAGE = """... (same as before) ..."""
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          pip install curl_cffi
+          
+      - name: Run Fast Script
+        run: |
+          python3 << 'EOF'
+          import json
+          import time
+          from curl_cffi import requests
 
-          @app.route('/')
-          def home():
-              return render_template_string("""
-              <!DOCTYPE html>
-              <html>
-              <head><title>Badal's Live AI</title><style>
-              body { background: #121212; color: #fff; font-family: sans-serif; padding: 20px; }
-              #chat { height: 400px; overflow: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; border-radius: 10px; background: #1e1e1e; }
-              input { width: 70%; padding: 10px; border-radius: 5px; border: none; }
-              button { padding: 10px 20px; background: #007bff; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
-              .user { color: #00ff00; margin-bottom: 5px; }
-              .ai { color: #00d4ff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
-              </style></head>
-              <body>
-              <h2>Badal's Unrestricted Gemini 🤪</h2>
-              <div id="chat"></div>
-              <input type="text" id="inp" placeholder="Kuch pucho Badal bhai...">
-              <button onclick="send()">Bhejo! 🚀</button>
-              <script>
-              async function send() {
-                  let i = document.getElementById('inp');
-                  let c = document.getElementById('chat');
-                  let txt = i.value; if(!txt) return;
-                  c.innerHTML += `<div class="user"><b>Badal:</b> ${txt}</div>`;
-                  i.value = '';
-                  let r = await fetch('/ask', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question: txt}) });
-                  let d = await r.json();
-                  c.innerHTML += `<div class="ai"><b>Gemini:</b> ${d.answer}</div>`;
-                  c.scrollTop = c.scrollHeight;
+          # Working Proxies ki list
+          PROXY_LIST = [
+              "38.34.179.78:8445", "38.34.179.105:8449", "103.171.255.242:8086",
+              "36.66.180.186:8080", "190.7.138.78:8080", "45.167.124.52:8080",
+              "38.34.179.86:8452", "38.199.30.195:999", "137.220.150.22:6005",
+              "45.136.131.62:8449"
+          ]
+
+          def run_ai_test(proxy):
+              print(f"\n🚀 [LOG] Trying with Proxy (curl_cffi): {proxy}")
+              
+              # Impersonate Chrome 110 (Cloudflare bypass magic ✨)
+              session = requests.Session(impersonate="chrome110")
+              
+              proxies = {
+                  "http": f"http://{proxy}",
+                  "https": f"http://{proxy}"
               }
-              </script></body></html>
-              """)
 
-          @app.route('/ask', methods=['POST'])
-          def ask():
-              loop = asyncio.new_event_loop()
-              asyncio.set_event_loop(loop)
-              return loop.run_until_complete(handle_request(request.json.get('question')))
-
-          async def handle_request(user_query):
-              global page_instance, chat_history
               try:
-                  nonce_res = await page_instance.evaluate("async () => { const r = await fetch('/api/chat-nonce'); return await r.json(); }")
-                  nonce = nonce_res.get('nonce')
+                  # 1. Get Nonce
+                  print(f"[LOG] Fetching Nonce from API...")
+                  nonce_res = session.get(
+                      "https://aifreeforever.com/api/chat-nonce",
+                      proxies=proxies,
+                      timeout=15
+                  )
+                  
+                  print(f"📄 RAW NONCE RESPONSE: {nonce_res.status_code} - {nonce_res.text}")
+                  
+                  if nonce_res.status_code != 200:
+                      raise Exception(f"Nonce failed with status {nonce_res.status_code}")
+                  
+                  nonce = nonce_res.json().get('nonce')
 
+                  # 2. AI Answer Request
+                  print(f"[LOG] Sending AI Request...")
                   payload = {
-                      "question": user_query,
+                      "question": "What is 2+2?",
                       "tone": "friendly",
                       "format": "paragraph",
-                      "conversationHistory": chat_history,
+                      "file": None,
+                      "conversationHistory": [],
                       "interactionProof": {
                           "nonce": nonce,
                           "keystrokeCount": 15,
-                          "totalTypingTime": 2500,
-                          "startTime": int(time.time()*1000) - 2500,
-                          "submitTime": int(time.time()*1000)
+                          "pasteEvents": 0,
+                          "totalTypingTime": 3500,
+                          "startTime": int(time.time() * 1000) - 3500,
+                          "submitTime": int(time.time() * 1000)
                       },
-                      "aiRole": "assistant"
+                      "aiRole": "assistant",
+                      "aiName": ""
                   }
 
-                  ai_res = await page_instance.evaluate(f"""
-                      async () => {{
-                          const r = await fetch('/api/generate-ai-answer', {{
-                              method: 'POST',
-                              headers: {{'Content-Type': 'application/json'}},
-                              body: JSON.stringify({json.dumps(payload)})
-                          }});
-                          return await r.json();
-                      }}
-                  """)
+                  ai_res = session.post(
+                      "https://aifreeforever.com/api/generate-ai-answer",
+                      json=payload,
+                      proxies=proxies,
+                      timeout=20,
+                      headers={"Content-Type": "application/json"}
+                  )
+
+                  print(f"📄 RAW AI RESPONSE: {ai_res.status_code} - {ai_res.text}")
                   
-                  answer = ai_res.get('answer', "Yaar, site ne filter laga diya! 🤪")
-                  chat_history.append({"role": "user", "content": user_query})
-                  chat_history.append({"role": "assistant", "content": answer})
-                  return jsonify({"answer": answer})
+                  if ai_res.status_code == 200:
+                      return True
+                  return False
+
               except Exception as e:
-                  print(f"Error: {e}")
-                  await init_playwright() # Error aane par restart browser
-                  return jsonify({"answer": "Network error, retry karo Badal bhai! 😂"})
+                  print(f"❌ [ERROR] Proxy {proxy} failed: {str(e)}")
+                  return False
+
+          def main():
+              for proxy in PROXY_LIST:
+                  success = run_ai_test(proxy)
+                  if success:
+                      print("\n✅ [FINAL] Task completed successfully using curl_cffi!")
+                      break
+                  else:
+                      print("⚠️ [RETRY] Moving to next proxy...")
 
           if __name__ == "__main__":
-              # Start Playwright in the main event loop
-              loop = asyncio.get_event_loop()
-              loop.run_until_complete(init_playwright())
-              app.run(port=5000, debug=False, use_reloader=False)
+              main()
           EOF
-          
-          sleep 10
-          bore local 5000 --to bore.pub
