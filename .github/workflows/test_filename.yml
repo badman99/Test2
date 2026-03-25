@@ -1,139 +1,103 @@
-name: 🧪 File Name & Size Tester v2
-
-on:
-  workflow_dispatch:
-    inputs:
-      target_url:
-        description: 'Direct URL dalo (Google CDN, HubCDN, PixelDrain, kuch bhi)'
-        required: true
+name: AI Test with Proxy Rotation
+on: workflow_dispatch
 
 jobs:
-  test-filename:
+  test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 🐍 Python taiyaar karo
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: 📦 curl_cffi install karo
-        run: pip install curl_cffi
-
-      - name: 🔍 Naam aur Size nikalo (Bina Download Kiye!)
+      - name: Install dependencies
         run: |
-          python - <<'EOF'
-          from curl_cffi import requests
-          from urllib.parse import urlparse, unquote
-          import re
+          pip install playwright requests
+          playwright install chromium
+          
+      - name: Run Script with Proxy Rotation
+        run: |
+          python3 << 'EOF'
+          import json
+          import requests
+          from playwright.sync_api import sync_playwright
 
-          url = "${{ github.event.inputs.target_url }}"
-          print(f"🎯 Target URL: {url}\n")
+          # Working Proxies ki list (Tum yahan aur bhi add kar sakte ho)
+          PROXY_LIST = [
+              "38.34.179.78:8445", "38.34.179.105:8449", "103.171.255.242:8086",
+              "36.66.180.186:8080", "190.7.138.78:8080", "45.167.124.52:8080",
+              "38.34.179.86:8452", "38.199.30.195:999", "137.220.150.22:6005",
+              "45.136.131.62:8449"
+          ]
 
-          session = requests.Session(impersonate="chrome")
-
-          # =============================================
-          # LAYER 1: HEAD REQUEST
-          # =============================================
-          print("━"*50)
-          print("🔵 [Layer 1] HEAD Request maar raha hoon...")
-          filename = None
-          size_str = None
-          resumable = False
-          content_type = "Unknown"
-
-          try:
-              resp_head = session.head(url, allow_redirects=True, timeout=20)
-              print(f"   Status: {resp_head.status_code}")
-
-              content_type = resp_head.headers.get("Content-Type", "Unknown")
-              resumable = resp_head.headers.get("Accept-Ranges", "") == "bytes"
-
-              # Size
-              cl = resp_head.headers.get("Content-Length")
-              if cl:
-                  b = int(cl)
-                  if b >= 1_073_741_824:
-                      size_str = f"{b / 1_073_741_824:.2f} GB ({b:,} bytes)"
-                  elif b >= 1_048_576:
-                      size_str = f"{b / 1_048_576:.2f} MB ({b:,} bytes)"
-                  else:
-                      size_str = f"{b / 1024:.2f} KB ({b:,} bytes)"
-
-              # Filename from Content-Disposition
-              cd = resp_head.headers.get("Content-Disposition", "")
-              if "filename" in cd:
-                  match = re.search(r"filename\*?=['\"]?(?:UTF-8'')?([^'\";\n\r]+)", cd, re.IGNORECASE)
-                  if match:
-                      filename = unquote(match.group(1).strip().strip('"').strip("'"))
-                      print(f"   ✅ Content-Disposition se mila: {filename}")
-
-          except Exception as e:
-              print(f"   ⚠️ HEAD fail hua: {e}")
-
-          # =============================================
-          # LAYER 2: GET STREAM (agar Layer 1 ne naam nahi diya)
-          # =============================================
-          if not filename:
-              print("\n" + "━"*50)
-              print("🟡 [Layer 2] GET stream=True maar raha hoon (0 bytes download)...")
+          def run_ai_test(proxy):
+              print(f"\n🚀 [LOG] Trying with Proxy: {proxy}")
               try:
-                  resp_get = session.get(url, stream=True, allow_redirects=True, timeout=20)
-                  print(f"   Status: {resp_get.status_code}")
+                  with sync_playwright() as p:
+                      # Proxy setup in browser
+                      browser = p.chromium.launch(proxy={"server": f"http://{proxy}"}, headless=True)
+                      context = browser.new_context()
+                      page = context.new_page()
+                      
+                      print(f"[LOG] Navigating to target site...")
+                      page.goto("https://aifreeforever.com/tools/free-chatgpt-no-login", timeout=60000)
+                      
+                      # 1. Nonce Fetching (Raw Response)
+                      print(f"[LOG] Fetching Nonce...")
+                      nonce_data = page.evaluate("""
+                          async () => {
+                              const r = await fetch('/api/chat-nonce');
+                              const data = await r.json();
+                              return { status: r.status, body: data };
+                          }
+                      """)
+                      print(f"📄 RAW NONCE RESPONSE: {json.dumps(nonce_data, indent=2)}")
+                      
+                      nonce = nonce_data['body'].get('nonce')
+                      if not nonce:
+                          raise Exception("Nonce not found in response!")
 
-                  content_type = resp_get.headers.get("Content-Type", content_type)
-                  resumable = resp_get.headers.get("Accept-Ranges", "") == "bytes"
-
-                  # Size (agar HEAD pe nahi mili)
-                  if not size_str:
-                      cl = resp_get.headers.get("Content-Length")
-                      if cl:
-                          b = int(cl)
-                          if b >= 1_073_741_824:
-                              size_str = f"{b / 1_073_741_824:.2f} GB ({b:,} bytes)"
-                          elif b >= 1_048_576:
-                              size_str = f"{b / 1_048_576:.2f} MB ({b:,} bytes)"
-                          else:
-                              size_str = f"{b / 1024:.2f} KB ({b:,} bytes)"
-
-                  # Filename from Content-Disposition
-                  cd = resp_get.headers.get("Content-Disposition", "")
-                  if "filename" in cd:
-                      match = re.search(r"filename\*?=['\"]?(?:UTF-8'')?([^'\";\n\r]+)", cd, re.IGNORECASE)
-                      if match:
-                          filename = unquote(match.group(1).strip().strip('"').strip("'"))
-                          print(f"   ✅ GET Content-Disposition se mila: {filename}")
-
-                  # IMPORTANT: Turant close — 1 byte bhi body nahi chahiye!
-                  resp_get.close()
-
+                      # 2. AI Answer Fetching (Raw Response)
+                      print(f"[LOG] Sending AI Request...")
+                      ai_data = page.evaluate(f"""
+                          async () => {{
+                              const r = await fetch('/api/generate-ai-answer', {{
+                                  method: 'POST',
+                                  headers: {{'Content-Type': 'application/json'}},
+                                  body: JSON.stringify({{
+                                      question: "What is 2+2?",
+                                      tone: "friendly",
+                                      format: "paragraph",
+                                      file: null,
+                                      conversationHistory: [],
+                                      interactionProof: {{
+                                          nonce: '{nonce}',
+                                          keystrokeCount: 5,
+                                          pasteEvents: 0,
+                                          totalTypingTime: 3000,
+                                          startTime: Date.now() - 3000,
+                                          submitTime: Date.now()
+                                      }},
+                                      aiRole: "assistant",
+                                      aiName: ""
+                                  }})
+                              }});
+                              const data = await r.json();
+                              return {{ status: r.status, body: data }};
+                          }}
+                      """)
+                      print(f"📄 RAW AI RESPONSE: {json.dumps(ai_data, indent=2)}")
+                      
+                      browser.close()
+                      return True # Success
               except Exception as e:
-                  print(f"   ⚠️ GET stream fail hua: {e}")
+                  print(f"❌ [ERROR] Proxy {proxy} failed: {str(e)}")
+                  return False
 
-          # =============================================
-          # LAYER 3: URL FALLBACK
-          # =============================================
-          if not filename:
-              print("\n" + "━"*50)
-              print("🔴 [Layer 3] URL se try kar raha hoon...")
-              path = urlparse(url).path
-              name = unquote(path.split("/")[-1])
-              if "." in name and len(name) > 5:
-                  filename = name
-                  print(f"   ✅ URL path se mila: {filename}")
-              else:
-                  filename = "❌ Naam nahi mila (teen layers ke baad bhi!)"
-                  print(f"   ❌ URL mein bhi naam nahi tha (MD5/token hai shayad)")
+          def main():
+              for proxy in PROXY_LIST:
+                  success = run_ai_test(proxy)
+                  if success:
+                      print("\n✅ [FINAL] Task completed successfully!")
+                      break
+                  else:
+                      print("⚠️ [RETRY] Moving to next proxy...")
 
-          # =============================================
-          # FINAL REPORT
-          # =============================================
-          print("\n" + "█"*55)
-          print("📊          FINAL REPORT")
-          print("█"*55)
-          print(f"📁 Filename  : {filename}")
-          print(f"📦 Size      : {size_str or '❌ Nahi mili'}")
-          print(f"🎬 Type      : {content_type}")
-          print(f"⏸️  Resumable : {'✅ HAN' if resumable else '❌ NAHI'}")
-          print("█"*55)
+          if __name__ == "__main__":
+              main()
           EOF
