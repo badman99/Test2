@@ -1,58 +1,61 @@
-name: Fast AI Test (No Playwright)
+name: Fast AI Test (curl_cffi)
 on: workflow_dispatch
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Install dependencies
-        run: |
-          pip install curl_cffi
+      - name: Install curl_cffi
+        run: pip install curl_cffi
           
-      - name: Run Fast Script
+      - name: Run Fast Script with Confirmed Proxies
         run: |
           python3 << 'EOF'
           import json
           import time
           from curl_cffi import requests
 
-          # Working Proxies ki list
-          PROXY_LIST = [
+          # Badal bhai ki confirmed working proxies! 😎
+          CONFIRMED_PROXIES = [
               "38.34.179.78:8445", "38.34.179.105:8449", "103.171.255.242:8086",
               "36.66.180.186:8080", "190.7.138.78:8080", "45.167.124.52:8080",
               "38.34.179.86:8452", "38.199.30.195:999", "137.220.150.22:6005",
-              "45.136.131.62:8449"
+              "45.136.131.62:8449", "120.92.211.211:7890", "116.80.82.92:7777",
+              "14.225.240.23:8562", "103.120.220.201:8083", "194.59.204.87:9080"
           ]
 
           def run_ai_test(proxy):
-              print(f"\n🚀 [LOG] Trying with Proxy (curl_cffi): {proxy}")
+              print(f"\n" + "="*50)
+              print(f"📡 [CONNECTING] Proxy: {proxy}")
+              print("="*50)
               
-              # Impersonate Chrome 110 (Cloudflare bypass magic ✨)
+              # Chrome 110 impersonation (Cloudflare bypass magic ✨)
               session = requests.Session(impersonate="chrome110")
-              
-              proxies = {
-                  "http": f"http://{proxy}",
-                  "https": f"http://{proxy}"
-              }
+              proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
 
               try:
-                  # 1. Get Nonce
-                  print(f"[LOG] Fetching Nonce from API...")
+                  # STEP 1: Fetch Nonce
+                  print(f"⏳ [STEP 1] Fetching Nonce...")
+                  start_time = time.time()
                   nonce_res = session.get(
                       "https://aifreeforever.com/api/chat-nonce",
                       proxies=proxies,
                       timeout=15
                   )
+                  latency = round(time.time() - start_time, 2)
                   
-                  print(f"📄 RAW NONCE RESPONSE: {nonce_res.status_code} - {nonce_res.text}")
+                  print(f"📄 [NONCE STATUS]: {nonce_res.status_code} ({latency}s)")
+                  print(f"📄 [NONCE RAW]: {nonce_res.text}")
                   
                   if nonce_res.status_code != 200:
-                      raise Exception(f"Nonce failed with status {nonce_res.status_code}")
+                      raise Exception(f"Failed to get Nonce, status: {nonce_res.status_code}")
                   
                   nonce = nonce_res.json().get('nonce')
+                  if not nonce:
+                      raise Exception("Nonce is missing in JSON response!")
 
-                  # 2. AI Answer Request
-                  print(f"[LOG] Sending AI Request...")
+                  # STEP 2: Send AI Request
+                  print(f"\n⏳ [STEP 2] Sending AI Request (2+2)...")
                   payload = {
                       "question": "What is 2+2?",
                       "tone": "friendly",
@@ -61,14 +64,12 @@ jobs:
                       "conversationHistory": [],
                       "interactionProof": {
                           "nonce": nonce,
-                          "keystrokeCount": 15,
-                          "pasteEvents": 0,
-                          "totalTypingTime": 3500,
-                          "startTime": int(time.time() * 1000) - 3500,
+                          "keystrokeCount": 25,
+                          "totalTypingTime": 4000,
+                          "startTime": int(time.time() * 1000) - 4000,
                           "submitTime": int(time.time() * 1000)
                       },
-                      "aiRole": "assistant",
-                      "aiName": ""
+                      "aiRole": "assistant"
                   }
 
                   ai_res = session.post(
@@ -79,24 +80,28 @@ jobs:
                       headers={"Content-Type": "application/json"}
                   )
 
-                  print(f"📄 RAW AI RESPONSE: {ai_res.status_code} - {ai_res.text}")
+                  print(f"📄 [AI STATUS]: {ai_res.status_code}")
+                  print(f"📄 [AI RAW BODY]:\n{json.dumps(ai_res.json(), indent=2, ensure_ascii=False)}")
                   
                   if ai_res.status_code == 200:
+                      print(f"\n🎯 [SUCCESS] Proxy {proxy} worked perfectly!")
                       return True
-                  return False
+                  else:
+                      print(f"❌ [FAILED] Status Code {ai_res.status_code}")
+                      return False
 
               except Exception as e:
-                  print(f"❌ [ERROR] Proxy {proxy} failed: {str(e)}")
+                  print(f"❌ [ERROR] Something went wrong: {str(e)}")
                   return False
 
           def main():
-              for proxy in PROXY_LIST:
-                  success = run_ai_test(proxy)
-                  if success:
-                      print("\n✅ [FINAL] Task completed successfully using curl_cffi!")
+              print(f"🔥 Badal bhai, testing shuru kar rahe hain with {len(CONFIRMED_PROXIES)} proxies...")
+              for proxy in CONFIRMED_PROXIES:
+                  if run_ai_test(proxy):
+                      print("\n✅ [FINAL] Ek number kaam ho gaya! 🤪🔥")
                       break
                   else:
-                      print("⚠️ [RETRY] Moving to next proxy...")
+                      print("⚠️ [NEXT] Is proxy ne dhoka de diya, agali try karte hain...")
 
           if __name__ == "__main__":
               main()
