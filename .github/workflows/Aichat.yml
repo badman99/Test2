@@ -1,0 +1,145 @@
+name: AI Live Chat on Bore
+on: workflow_dispatch
+
+jobs:
+  run-live:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install dependencies
+        run: |
+          pip install playwright requests flask flask-cors
+          playwright install chromium
+          # Bore install karna
+          curl -Ls https://github.com/ekzhang/bore/releases/download/v0.5.0/bore-v0.5.0-x86_64-unknown-linux-musl.tar.gz | tar -xz
+          sudo mv bore /usr/local/bin/
+
+      - name: Start AI Server and Tunnel
+        run: |
+          python3 << 'EOF' &
+          import json
+          import time
+          from flask import Flask, request, jsonify, render_template_string
+          from playwright.sync_api import sync_playwright
+
+          app = Flask(__name__)
+          
+          # Global state
+          chat_context = []
+          browser_instance = None
+          page_instance = None
+          proxy = "38.34.179.78:8445" # Jo proxy kaam kar rahi thi
+
+          def init_browser():
+              global browser_instance, page_instance
+              print(f"🚀 [LOG] Initializing Browser with Proxy: {proxy}")
+              pw = sync_playwright().start()
+              browser_instance = pw.chromium.launch(proxy={"server": f"http://{proxy}"}, headless=True)
+              page_instance = browser_instance.new_page()
+              page_instance.goto("https://aifreeforever.com/tools/free-chatgpt-no-login", timeout=60000)
+              print("✅ [LOG] Browser Ready!")
+
+          init_browser()
+
+          HTML_TEMPLATE = """
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>Badal's Private AI</title>
+              <style>
+                  body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
+                  #chat { height: 400px; overflow-y: scroll; border: 1px solid #444; padding: 10px; margin-bottom: 10px; }
+                  input { width: 80%; padding: 10px; background: #222; color: white; border: 1px solid #555; }
+                  button { padding: 10px; cursor: pointer; background: #007bff; color: white; border: none; }
+                  .user { color: #00ff00; }
+                  .ai { color: #00d4ff; }
+              </style>
+          </head>
+          <body>
+              <h2>Badal's Unrestricted Gemini 🤪</h2>
+              <div id="chat"></div>
+              <input type="text" id="msg" placeholder="Type something..." onkeypress="if(event.key==='Enter') send()">
+              <button onclick="send()">Send</button>
+
+              <script>
+                  async function send() {
+                      const msgInput = document.getElementById('msg');
+                      const chatDiv = document.getElementById('chat');
+                      const text = msgInput.value;
+                      if(!text) return;
+
+                      chatDiv.innerHTML += `<p class="user"><b>Badal:</b> ${text}</p>`;
+                      msgInput.value = '';
+
+                      const res = await fetch('/ask', {
+                          method: 'POST',
+                          headers: {'Content-Type': 'application/json'},
+                          body: JSON.stringify({ question: text })
+                      });
+                      const data = await res.json();
+                      chatDiv.innerHTML += `<p class="ai"><b>Gemini:</b> ${data.answer}</p>`;
+                      chatDiv.scrollTop = chatDiv.scrollHeight;
+                  }
+              </script>
+          </body>
+          </html>
+          """
+
+          @app.route('/')
+          def index():
+              return render_template_string(HTML_TEMPLATE)
+
+          @app.route('/ask', methods=['POST'])
+          def ask():
+              global chat_context
+              user_query = request.json.get('question')
+              
+              try:
+                  # Nonce fetch
+                  nonce_res = page_instance.evaluate("async () => { const r = await fetch('/api/chat-nonce'); return await r.json(); }")
+                  nonce = nonce_res.get('nonce')
+
+                  # AI request with context
+                  ai_payload = {
+                      "question": user_query,
+                      "tone": "friendly",
+                      "format": "paragraph",
+                      "conversationHistory": chat_context,
+                      "interactionProof": {
+                          "nonce": nonce,
+                          "keystrokeCount": 10,
+                          "pasteEvents": 0,
+                          "totalTypingTime": 2000,
+                          "startTime": int(time.time()*1000) - 2000,
+                          "submitTime": int(time.time()*1000)
+                      },
+                      "aiRole": "assistant"
+                  }
+
+                  response = page_instance.evaluate(f"""
+                      async () => {{
+                          const r = await fetch('/api/generate-ai-answer', {{
+                              method: 'POST',
+                              headers: {{'Content-Type': 'application/json'}},
+                              body: JSON.stringify({json.dumps(ai_payload)})
+                          }});
+                          return await r.json();
+                      }}
+                  """)
+
+                  answer = response.get('answer', "Sorry, I missed that. 🤪")
+                  
+                  # Update context
+                  chat_context.append({"role": "user", "content": user_query})
+                  chat_context.append({"role": "assistant", "content": answer})
+
+                  return jsonify({"answer": answer})
+              except Exception as e:
+                  return jsonify({"answer": f"Error: {str(e)} 😂"})
+
+          if __name__ == "__main__":
+              app.run(port=5000)
+          EOF
+          
+          # Bore tunnel start karna
+          sleep 5
+          bore local 5000 --to bore.pub
