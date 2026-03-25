@@ -1,4 +1,4 @@
-name: AI Live Project Final
+name: AI Live Project V3 (Async)
 on: workflow_dispatch
 
 jobs:
@@ -16,112 +16,94 @@ jobs:
       - name: Start Live AI Project
         run: |
           python3 << 'EOF' &
+          import asyncio
           import json
           import time
           from flask import Flask, request, jsonify, render_template_string
-          from playwright.sync_api import sync_playwright
+          from playwright.async_api import async_playwright
 
           app = Flask(__name__)
 
-          # Configuration
-          PROXY_LIST = ["38.34.179.78:8445", "38.34.179.105:8449", "103.171.255.242:8086"] # Top 3 working
-          current_proxy_index = 0
+          # Config
+          PROXY_LIST = ["38.34.179.78:8445", "38.34.179.105:8449", "103.171.255.242:8086"]
+          current_proxy_idx = 0
           chat_history = []
           
-          # Playwright Globals
-          pw = None
-          browser = None
-          page = None
+          # Globals
+          browser_instance = None
+          page_instance = None
+          pw_instance = None
 
-          def start_session():
-              global pw, browser, page, current_proxy_index
-              if browser:
-                  browser.close()
+          async def init_playwright():
+              global browser_instance, page_instance, pw_instance, current_proxy_idx
+              if browser_instance:
+                  await browser_instance.close()
               
-              proxy = PROXY_LIST[current_proxy_index]
-              print(f"🚀 [LOG] Starting Browser with Proxy: {proxy}")
+              proxy = PROXY_LIST[current_proxy_idx]
+              print(f"🚀 [LOG] Initializing Async Browser with Proxy: {proxy}")
+              
+              pw_instance = await async_playwright().start()
               try:
-                  pw = sync_playwright().start()
-                  browser = pw.chromium.launch(proxy={"server": f"http://{proxy}"}, headless=True)
-                  page = browser.new_page()
-                  page.goto("https://aifreeforever.com/tools/free-chatgpt-no-login", timeout=60000)
-                  print("✅ [LOG] Browser is Live and Ready!")
-                  return True
+                  browser_instance = await pw_instance.chromium.launch(
+                      proxy={"server": f"http://{proxy}"}, 
+                      headless=True
+                  )
+                  page_instance = await browser_instance.new_page()
+                  await page_instance.goto("https://aifreeforever.com/tools/free-chatgpt-no-login", timeout=60000)
+                  print("✅ [LOG] Browser is ready for action! 🤪")
               except Exception as e:
-                  print(f"❌ [LOG] Failed with {proxy}: {e}")
-                  current_proxy_index = (current_proxy_index + 1) % len(PROXY_LIST)
-                  return start_session()
+                  print(f"❌ [LOG] Proxy failed: {e}")
+                  current_proxy_idx = (current_proxy_idx + 1) % len(PROXY_LIST)
+                  await init_playwright()
 
-          # Initial Start
-          start_session()
-
-          HTML_PAGE = """
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <title>Badal's Live AI</title>
-              <style>
-                  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f0f; color: #e0e0e0; display: flex; flex-direction: column; height: 100vh; margin: 0; }
-                  #header { background: #1a1a1a; padding: 15px; text-align: center; border-bottom: 2px solid #333; }
-                  #chat-box { flex: 1; overflow-y: auto; padding: 20px; }
-                  #input-area { background: #1a1a1a; padding: 20px; display: flex; gap: 10px; }
-                  input { flex: 1; padding: 12px; border-radius: 5px; border: 1px solid #444; background: #252525; color: white; }
-                  button { padding: 12px 25px; background: #0078d4; color: white; border: none; border-radius: 5px; cursor: pointer; }
-                  .msg { margin-bottom: 15px; padding: 10px; border-radius: 8px; max-width: 80%; }
-                  .user { background: #004a87; align-self: flex-end; margin-left: auto; }
-                  .ai { background: #2d2d2d; align-self: flex-start; }
-              </style>
-          </head>
-          <body>
-              <div id="header"><h2>Badal's Unrestricted Chat 🤪</h2></div>
-              <div id="chat-box"></div>
-              <div id="input-area">
-                  <input type="text" id="user-input" placeholder="Yahan likho Badal bhai...">
-                  <button onclick="sendMessage()">Bhejo 🚀</button>
-              </div>
-              <script>
-                  async function sendMessage() {
-                      const input = document.getElementById('user-input');
-                      const box = document.getElementById('chat-box');
-                      const text = input.value;
-                      if(!text) return;
-
-                      box.innerHTML += `<div class="msg user"><b>Badal:</b> ${text}</div>`;
-                      input.value = '';
-                      box.scrollTop = box.scrollHeight;
-
-                      const res = await fetch('/ask', {
-                          method: 'POST',
-                          headers: {'Content-Type': 'application/json'},
-                          body: JSON.stringify({ question: text })
-                      });
-                      const data = await res.json();
-                      box.innerHTML += `<div class="msg ai"><b>Gemini:</b> ${data.answer}</div>`;
-                      box.scrollTop = box.scrollHeight;
-                  }
-              </script>
-          </body>
-          </html>
-          """
+          # HTML Template remains same
+          HTML_PAGE = """... (same as before) ..."""
 
           @app.route('/')
           def home():
-              return render_template_string(HTML_PAGE)
+              return render_template_string("""
+              <!DOCTYPE html>
+              <html>
+              <head><title>Badal's Live AI</title><style>
+              body { background: #121212; color: #fff; font-family: sans-serif; padding: 20px; }
+              #chat { height: 400px; overflow: auto; border: 1px solid #444; padding: 10px; margin-bottom: 10px; border-radius: 10px; background: #1e1e1e; }
+              input { width: 70%; padding: 10px; border-radius: 5px; border: none; }
+              button { padding: 10px 20px; background: #007bff; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+              .user { color: #00ff00; margin-bottom: 5px; }
+              .ai { color: #00d4ff; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+              </style></head>
+              <body>
+              <h2>Badal's Unrestricted Gemini 🤪</h2>
+              <div id="chat"></div>
+              <input type="text" id="inp" placeholder="Kuch pucho Badal bhai...">
+              <button onclick="send()">Bhejo! 🚀</button>
+              <script>
+              async function send() {
+                  let i = document.getElementById('inp');
+                  let c = document.getElementById('chat');
+                  let txt = i.value; if(!txt) return;
+                  c.innerHTML += `<div class="user"><b>Badal:</b> ${txt}</div>`;
+                  i.value = '';
+                  let r = await fetch('/ask', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({question: txt}) });
+                  let d = await r.json();
+                  c.innerHTML += `<div class="ai"><b>Gemini:</b> ${d.answer}</div>`;
+                  c.scrollTop = c.scrollHeight;
+              }
+              </script></body></html>
+              """)
 
           @app.route('/ask', methods=['POST'])
           def ask():
-              global page, chat_history
-              user_query = request.json.get('question')
-              
-              print(f"📩 [RAW REQUEST] Question: {user_query}")
-              
-              try:
-                  # Nonce fetching
-                  nonce_res = page.evaluate("async () => { const r = await fetch('/api/chat-nonce'); return {status: r.status, body: await r.json()}; }")
-                  print(f"📄 [RAW NONCE]: {json.dumps(nonce_res)}")
-                  nonce = nonce_res['body'].get('nonce')
+              loop = asyncio.new_event_loop()
+              asyncio.set_event_loop(loop)
+              return loop.run_until_complete(handle_request(request.json.get('question')))
 
-                  # Interaction Proof & History
+          async def handle_request(user_query):
+              global page_instance, chat_history
+              try:
+                  nonce_res = await page_instance.evaluate("async () => { const r = await fetch('/api/chat-nonce'); return await r.json(); }")
+                  nonce = nonce_res.get('nonce')
+
                   payload = {
                       "question": user_query,
                       "tone": "friendly",
@@ -129,42 +111,39 @@ jobs:
                       "conversationHistory": chat_history,
                       "interactionProof": {
                           "nonce": nonce,
-                          "keystrokeCount": 10,
-                          "totalTypingTime": 2000,
-                          "startTime": int(time.time()*1000) - 2000,
+                          "keystrokeCount": 15,
+                          "totalTypingTime": 2500,
+                          "startTime": int(time.time()*1000) - 2500,
                           "submitTime": int(time.time()*1000)
                       },
                       "aiRole": "assistant"
                   }
 
-                  # AI Response
-                  ai_res = page.evaluate(f"""
+                  ai_res = await page_instance.evaluate(f"""
                       async () => {{
                           const r = await fetch('/api/generate-ai-answer', {{
                               method: 'POST',
                               headers: {{'Content-Type': 'application/json'}},
                               body: JSON.stringify({json.dumps(payload)})
                           }});
-                          return {{status: r.status, body: await r.json()}};
+                          return await r.json();
                       }}
                   """)
-                  print(f"📄 [RAW AI RESPONSE]: {json.dumps(ai_res)}")
-
-                  answer = ai_res['body'].get('answer', "No answer received.")
                   
-                  # Context maintain karna
+                  answer = ai_res.get('answer', "Yaar, site ne filter laga diya! 🤪")
                   chat_history.append({"role": "user", "content": user_query})
                   chat_history.append({"role": "assistant", "content": answer})
-
                   return jsonify({"answer": answer})
               except Exception as e:
-                  print(f"❌ Error during AI call: {e}")
-                  start_session() # Restart if something breaks
-                  return jsonify({"answer": "Opps! Thoda error aaya, restart kar raha hoon... 😂"})
+                  print(f"Error: {e}")
+                  await init_playwright() # Error aane par restart browser
+                  return jsonify({"answer": "Network error, retry karo Badal bhai! 😂"})
 
           if __name__ == "__main__":
-              # Threading False kiya taaki Playwright crash na ho
-              app.run(port=5000, threaded=False)
+              # Start Playwright in the main event loop
+              loop = asyncio.get_event_loop()
+              loop.run_until_complete(init_playwright())
+              app.run(port=5000, debug=False, use_reloader=False)
           EOF
           
           sleep 10
