@@ -1,10 +1,10 @@
-name: Ultimate Stealth Hunter 🏹
+name: Full Stealth Link Hunter 🥷💎
 
 on:
   workflow_dispatch:
 
 jobs:
-  ultimate-hunt:
+  mega-extraction:
     runs-on: ubuntu-latest
 
     steps:
@@ -13,92 +13,80 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: 📦 Install Stealth Tools
+      - name: 📦 Install Stealth Requests
         run: pip install curl_cffi
 
       - name: 🚀 Start Surgical Strike
         run: |
-          cat <<EOF > hunter.py
+          cat <<EOF > final_strike.py
           from curl_cffi import requests
           import re
-          import time
+          import json
+
+          # --- CONFIG ---
+          START_URL = "https://hubcloud.foo/drive/qoef8hunw1qfkuw"
+          HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 
           def scan_for_google(html):
-              """HTML से Google Direct Link निकालने का औजार"""
-              match = re.search(r'https?://video-downloads\.googleusercontent\.com/[^\s"\'<>]+', html)
+              """Googleusercontent वाला जादुई लिंक ढूंढने के लिए"""
+              match = re.search(r'https?://[^\s"\'<>]+googleusercontent[^\s"\'<>]+', html)
               return match.group(0) if match else None
 
-          def scan_for_hubcdn(html):
-              """HTML से HubCDN वाला लिंक निकालने का औजार"""
-              match = re.search(r'https?://pixel\.hubcdn\.fans/[^\s"\'<>]+', html)
-              return match.group(0) if match else None
-
-          # --- STEP 1: HUBCLOUD ---
-          hub_url = "https://hubcloud.foo/drive/qoef8hunw1qfkuw"
-          print(f"🕵️‍♂️ Step 1: HubCloud पर धावा बोल रहा हूँ...")
-          
-          r1 = requests.get(hub_url, impersonate="chrome")
-          gamer_match = re.search(r"var url = '(.*?)';", r1.text)
-          
-          if not gamer_match:
-              print("❌ GamerXYT लिंक नहीं मिला!")
-              exit()
-          
-          gamer_url = gamer_match.group(1)
-          print(f"✅ GamerXYT लिंक मिला: {gamer_url}")
-
-          # --- STEP 2: GAMERXYT ---
-          print(f"\n🏃 Step 2: GamerXYT के अंदर घुस रहा हूँ...")
-          r2 = requests.get(gamer_url, impersonate="chrome")
-          
-          # यहाँ चेक करो कि क्या Google लिंक पहले ही मिल गया?
-          google_link = scan_for_google(r2.text)
-          
-          if google_link:
-              print(f"🔥 जैकपॉट! Google लिंक यहीं मिल गया: {google_link}")
-          else:
-              print("🧐 Google लिंक नहीं मिला, अब HubCDN लिंक ढूंढ रहा हूँ...")
-              hubcdn_url = scan_for_hubcdn(r2.text)
+          def main():
+              print("🕵️‍♂️ Step 1: HubCloud से GamerXYT का टोकन निकाल रहा हूँ...")
+              r1 = requests.get(START_URL, impersonate="chrome")
+              gamer_match = re.search(r"var url = '(.*?)';", r1.text)
               
-              if hubcdn_url:
-                  print(f"🔗 HubCDN लिंक मिला: {hubcdn_url}")
-                  
-                  # --- STEP 3: HUBCDN REDIRECT CHASE ---
-                  print(f"\n🚀 Step 3: HubCDN का पीछा कर रहा हूँ (Follow Redirects)...")
-                  # allow_redirects=True असली जादू है
-                  r3 = requests.get(hubcdn_url, impersonate="chrome", allow_redirects=True, timeout=30)
-                  
-                  print(f"📍 मंज़िल पर पहुँचे: {r3.url}")
-                  
-                  # अंतिम पेज के सोर्स में फिर से Google लिंक स्कैन करो
-                  final_google = scan_for_google(r3.text)
-                  
-                  if final_google:
-                      google_link = final_google
-                      print(f"🔥 जैकपॉट! अंतिम पेज पर Google लिंक मिल गया: {google_link}")
-                  else:
-                      print("❌ अंतिम पेज पर भी कुछ नहीं मिला यार!")
+              if not gamer_match:
+                  print("❌ GamerXYT लिंक नहीं मिला!")
+                  return
+              
+              gamer_url = gamer_match.group(1)
+              print(f"✅ GamerXYT लिंक मिला: {gamer_url}")
+
+              print("\n🕵️‍♂️ Step 2: GamerXYT के पेट से HubCDN का लिंक निकाल रहा हूँ...")
+              r2 = requests.get(gamer_url, impersonate="chrome")
+              
+              # HubCDN के लिए Regex
+              hubcdn_match = re.search(r'https://pixel\.hubcdn\.fans/\?id=[^\s"\'<>]+', r2.text)
+              
+              if not hubcdn_match:
+                  print("⚠️ HubCDN लिंक नहीं मिला, शायद सीधे Google वाला हो?")
+                  google_link = scan_for_google(r2.text)
               else:
-                  print("❌ HubCDN लिंक भी नहीं मिला।")
+                  hubcdn_url = hubcdn_match.group(0)
+                  print(f"✅ HubCDN लिंक मिला: {hubcdn_url}")
+                  
+                  print("\n🕵️‍♂️ Step 3: Redirects का पीछा कर रहा हूँ (HubCDN -> Final Page)...")
+                  # allow_redirects=True ताकि हम आखिरी मंजिल तक पहुँच जाएँ
+                  r3 = requests.get(hubcdn_url, impersonate="chrome", allow_redirects=True)
+                  print(f"🏁 आखिरी मंज़िल का URL: {r3.url}")
+                  
+                  # यहाँ भी Google लिंक स्कैन करो
+                  google_link = scan_for_google(r3.text)
+                  
+                  # अंतिम पेज का सोर्स सेव करो
+                  with open("final_page_source.html", "w", encoding='utf-8') as f:
+                      f.write(r3.text)
+                  print("💾 अंतिम पेज का Source Code सेव हो गया!")
 
-          # --- RESULT SAVE ---
-          if google_link:
-              with open("final_result.txt", "w") as f:
-                  f.write(f"GOOGLE_LINK: {google_link}")
-              print("\n🎉 मिशन कामयाब! लिंक सेव कर लिया गया है।")
-          else:
-              with open("failed_source.html", "w", encoding='utf-8') as f:
-                  f.write(r2.text)
-              print("\n💀 मिशन फेल! शायद साइट ने पैटर्न बदल दिया।")
+              if google_link:
+                  print(f"\n🔥 जैकपॉट!!! Google Direct Link मिल गया: \n{google_link}")
+                  with open("jackpot_link.txt", "w") as f:
+                      f.write(google_link)
+              else:
+                  print("\n❌ अफ़सोस! Google लिंक हाथ नहीं आया।")
 
+          if __name__ == "__main__":
+              main()
           EOF
 
-          python hunter.py
+          python final_strike.py
 
-      - name: 📤 Upload Final Treasure
+      - name: 📤 Upload Results
         uses: actions/upload-artifact@v4
         with:
-          name: hunt-results
+          name: link-extraction-results
           path: |
-            final_result.txt
-            failed_source.html
+            jackpot_link.txt
+            final_page_source.html
